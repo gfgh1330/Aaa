@@ -7,27 +7,29 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --primary-color: #007bff;
-            --secondary-color: #6c757d;
-            --background-color: #f4f7f9;
+            /* Light Theme Palette - New */
+            --primary-color: #00a8a9;
+            --secondary-color: #80dede;
+            --background-color: #e6f7f7;
             --surface-color: #ffffff;
-            --text-color: #333;
-            --border-color: #dee2e6;
+            --text-color: #2f363d;
+            --border-color: #c0eded;
             --error-color: #dc3545;
             --success-color: #28a745;
             --border-radius: 12px;
-            --box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+            --box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
         }
         :root[data-theme="dark"] {
-            --primary-color: #3694ff;
-            --secondary-color: #89939c;
-            --background-color: #121212;
-            --surface-color: #1e1e1e;
-            --text-color: #e0e0e0;
-            --border-color: #3a3a3a;
+            /* Dark Theme Palette - New */
+            --primary-color: #00a8a9;
+            --secondary-color: #7a828c;
+            --background-color: #2f363d;
+            --surface-color: #3c434c;
+            --text-color: #f0f0f0;
+            --border-color: #505860;
             --error-color: #ff5252;
             --success-color: #4caf50;
-            --box-shadow: 0 6px 15px rgba(0,0,0,0.25);
+            --box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
         }
         body { font-family: 'Tahoma', 'Segoe UI', sans-serif; background-color: var(--background-color); color: var(--text-color); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; transition: background-color 0.3s, color 0.3s; }
         .container { width: 100%; max-width: 650px; height: 90vh; max-height: 700px; background-color: var(--surface-color); border-radius: var(--border-radius); box-shadow: var(--box-shadow); display: flex; flex-direction: column; position: relative; overflow: hidden; transition: background-color 0.3s; }
@@ -69,7 +71,7 @@
         .image-preview-wrapper { text-align: center; }
         .image-preview { max-width: 100%; max-height: 250px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 15px; }
         .button { display: inline-block; padding: 12px 25px; background-color: var(--primary-color); color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: background-color 0.3s; text-decoration: none; }
-        .button.secondary { background-color: var(--secondary-color); }
+        .button.secondary { background-color: var(--secondary-color); color: var(--text-color); }
         .button.link { background: none; color: var(--primary-color); padding: 10px; }
         .button:disabled { background-color: #a0a0a0; cursor: not-allowed; }
         .wizard-nav { margin-top: auto; padding-top: 20px; display: flex; justify-content: space-between; align-items: center; }
@@ -81,6 +83,7 @@
         .format-selector .button { background-color: var(--secondary-color); }
         .format-selector .button.active { background-color: var(--primary-color); transform: scale(1.05); }
         #loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(5px); }
+        :root[data-theme="dark"] #loader-overlay { background: rgba(0, 0, 0, 0.8); }
         #loader-overlay .spinner { margin-bottom: 20px; border: 5px solid #f3f3f3; border-top: 5px solid var(--primary-color); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
         #toast-notification { position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%); background-color: var(--primary-color); color: white; padding: 15px 25px; border-radius: 8px; z-index: 10000; transition: bottom 0.5s ease-in-out; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         #toast-notification.show { bottom: 30px; }
@@ -137,6 +140,7 @@
         <p data-lang-key="loading_text">جاري التحميل...</p>
     </div>
     <canvas id="canvas" style="display:none;"></canvas>
+    <div id="toast-notification"></div>
 
 <script>
 const wizardTemplates = {
@@ -253,9 +257,12 @@ function setLanguage(lang) {
     document.querySelectorAll('[data-lang-key]').forEach(el => {
         const key = el.getAttribute('data-lang-key');
         if (translations[lang] && translations[lang][key]) {
-            const span = el.querySelector('span');
-            if (span) {
-                span.textContent = " " + translations[lang][key];
+            // Check if the element has a child span to avoid replacing icons
+            const textNode = Array.from(el.childNodes).find(node => node.nodeType === Node.TEXT_NODE || node.tagName === 'P' || node.tagName === 'SPAN');
+            if (textNode && textNode.tagName === 'SPAN') {
+                 textNode.textContent = " " + translations[lang][key];
+            } else if (textNode) {
+                 textNode.textContent = translations[lang][key];
             } else {
                 el.textContent = translations[lang][key];
             }
@@ -291,8 +298,17 @@ function initializeWizard(wizardId) {
     wizardEl.appendChild(fileInput);
 
     wizardEl.querySelector('.upload-area').addEventListener('click', () => fileInput.click());
-    wizardEl.querySelector('[data-action="change-image"]').addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => handleImageUpload(e, wizardId));
+    wizardEl.querySelector('[data-action="change-image"]')?.addEventListener('click', () => fileInput.click());
+    
+    // MODIFIED: Added file input bug fix here
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            handleImageUpload(e, wizardId);
+        }
+        // This is the fix: reset the value so the 'change' event can
+        // fire again, even if the user selects the same file or cancels.
+        e.target.value = null;
+    });
 
     wizardEl.querySelectorAll('[data-action]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -373,15 +389,9 @@ function loadImage(file) { return new Promise((resolve, reject) => { const reade
 function showToast(messageKey) {
     const lang = localStorage.getItem('stego_lang') || 'ar';
     DOMElements.toastNotification.textContent = translations[lang][messageKey];
-    DOMElements.toastNotification.classList.add('show');
-    setTimeout(() => { DOMElements.toastNotification.classList.remove('show'); }, 3000);
+    DOMElements.toastNotification.className = 'show';
+    setTimeout(() => { DOMElements.toastNotification.className = ''; }, 3000);
 }
-
-// All other core logic functions (handleEncode, handleDecode, etc.) remain the same
-async function handleEncode(wizardId) { /* ... same as before ... */ }
-async function handleDecode(wizardId) { /* ... same as before ... */ }
-async function displayDecodedData(data, wizardId) { /* ... same as before ... */ }
-async function handleConvert(wizardId) { /* ... same as before ... */ }
 
 document.addEventListener('DOMContentLoaded', () => {
     const savedLang = localStorage.getItem('stego_lang') || 'ar';
@@ -428,8 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// The full, correct implementations of the handle functions from previous versions
-handleEncode = async function (wizardId) {
+async function handleEncode(wizardId) {
     const wizardEl = document.getElementById(`${wizardId}-wizard`);
     const textData = wizardEl.querySelector('[data-type="text-input"]').value;
     const fileToHide = wizardState[wizardId].fileToHide;
@@ -472,7 +481,7 @@ handleEncode = async function (wizardId) {
     } catch (e) { alert('An error occurred: ' + e.message); }
     finally { DOMElements.loaderOverlay.style.display = 'none'; }
 };
-handleDecode = async function (wizardId) {
+async function handleDecode(wizardId) {
     const imageFile = wizardState[wizardId].imageFile;
     DOMElements.loaderOverlay.style.display = 'flex';
     try {
@@ -504,7 +513,7 @@ handleDecode = async function (wizardId) {
     } catch (e) { alert(translations[localStorage.getItem('stego_lang') || 'ar'][e.message] || e.message); }
     finally { DOMElements.loaderOverlay.style.display = 'none'; }
 };
-displayDecodedData = function (data, wizardId) {
+function displayDecodedData(data, wizardId) {
     const wizardEl = document.getElementById(`${wizardId}-wizard`);
     const resultArea = wizardEl.querySelector('.result-area');
     resultArea.innerHTML = '';
@@ -532,7 +541,7 @@ displayDecodedData = function (data, wizardId) {
         showStep(wizardId, 2);
     }
 };
-handleConvert = async function (wizardId) {
+async function handleConvert(wizardId) {
     const wizardEl = document.getElementById(`${wizardId}-wizard`);
     const formatBtn = wizardEl.querySelector('.format-selector .active');
     if (!formatBtn) { alert('Please select a format.'); return; }
